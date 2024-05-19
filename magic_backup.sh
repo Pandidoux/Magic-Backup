@@ -3,7 +3,7 @@
 # Backup configuration
 backup_directory="/mnt/sharing/backups/$(hostname)" # Directory where backup files are stored
 elements_to_backup=( # List of files and/or directory to backup
-    "/home/user/docker-volumes"
+    "/home/user/docker-configs"
     "/home/user/scripts"
     "/etc/cron.daily"
     "/etc/cron.hourly"
@@ -15,6 +15,7 @@ compression_level="9" # Compression level from 1 to 9
 # Docker
 stop_containers=false # Stop docker containers
 container_filter_type="include" # "include" to only stop listed container, "exclude" to keep only listed container running
+strict_start_order=true # Restart container in strict order, only for "include" mode
 container_filter=( # List of container names
     "portainer_agent"
     "ubuntu"
@@ -81,8 +82,16 @@ start_docker_containers() {
     if [ "$container_filter_type" = "include" ]; then # Include container filter
         log "Docker starting containers => $container_grep_filter"
         if [ "$debug_mode" = false ]; then
-            sudo docker start $(sudo docker ps --all --format '{{.Names}}' | grep --extended-regexp "$container_grep_filter") >/dev/null 2>>"$log_file"
-            sleep 1
+            if [ "$strict_start_order" = true ]; then
+                for container in "${container_filter[@]}"; do
+                    log "Docker starting container => $container"
+                    sudo docker start $container >/dev/null 2>>"$log_file"
+                    sleep 1
+                done
+            else
+                sudo docker start $(sudo docker ps --all --format '{{.Names}}' | grep --extended-regexp "$container_grep_filter") >/dev/null 2>>"$log_file"
+                sleep 1
+            fi
         fi
     else # Exclude container filter
         log "Docker starting all containers exept => $container_grep_filter"
