@@ -2,6 +2,7 @@
 
 # Backup configuration
 backup_directory="/mnt/sharing/backups/$(hostname)" # Directory where backup files are stored
+backup_name="Backup_$(hostname)_$(date +"%Y-%m-%d_%H-%M-%S").tar.gz" # Backup filename
 elements_to_backup=( # List of files and/or directory to backup
     "/home/user/docker-configs"
     "/home/user/scripts"
@@ -15,9 +16,8 @@ compression_level="9" # Compression level from 1 to 9
 # Docker
 stop_containers=false # Stop docker containers
 container_filter_type="include" # "include" to only stop listed container, "exclude" to keep only listed container running
-strict_start_order=true # Restart container in strict order, only for "include" mode
+strict_start_order=false # Restart container in strict order, only for "include" mode
 container_filter=( # List of container names
-    "portainer_agent"
     "ubuntu"
 )
 # Detete old backups
@@ -114,7 +114,7 @@ perform_backup() {
             mkdir -p "$backup_directory"
             if [ $? -ne 0 ]; then
                 log "Error: Failed to create backup directory => $backup_directory."
-                return 1
+                exit 1
             fi
             log "Backup directory created => $backup_directory"
         fi
@@ -124,7 +124,7 @@ perform_backup() {
     if [ ! -w "$backup_directory" ]; then
         log "Error: Backup directory is not writable => $backup_directory"
         if [ "$debug_mode" = false ]; then
-            return 1
+            exit 1
         fi
     fi
 
@@ -141,14 +141,7 @@ perform_backup() {
     fi
 
     if [ "$onefile_backup" = true ]; then
-        # for item in "${elements_to_backup[@]}"; do # Loop through each file/folder to backup
-        #     if [ -e "$item" ]; then
-        #         items_to_backup="${items_to_backup} ${item}"
-        #     else
-        #         log "Warning: File or directory $item does not exist. Skipping..."
-        #     fi
-        # done
-        backup_filename="Backup_$(date +"%Y-%m-%d_%H-%M-%S").tar.gz" # Append date to filename
+        backup_filename="${backup_name}" # Append date to filename
         log "Backup $item => ${backup_directory}/${backup_filename}"
         if [ "$debug_mode" = false ]; then
             # tar --create $compression_arg --exclude-vcs -f "${backup_directory}/${backup_filename}" $items_to_backup >/dev/null 2>>"${log_file}"
@@ -167,7 +160,7 @@ perform_backup() {
     else
         for item in "${elements_to_backup[@]}"; do # Loop through each file/folder to backup
             if [ -e "$item" ]; then
-                backup_filename="${item##*/}_$(date +"%Y-%m-%d_%H-%M-%S").tar.gz" # Append date to filename
+                backup_filename="${item##*/}_${backup_name}" # Append date to filename
                 log "Backup $item => ${backup_directory}/${backup_filename}"
                 if [ "$debug_mode" = false ]; then
                     # tar --create $compression_arg --exclude-vcs -f "${backup_directory}/${backup_filename}" "${item}" >/dev/null 2>>"${log_file}"
